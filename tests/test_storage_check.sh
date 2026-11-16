@@ -38,6 +38,7 @@ snapshot > "$BEFORE"
 
 status=0
 HOME="$FAKE_HOME" SC_DEV_ROOTS="$FAKE_HOME/Projects" SC_SKIP_SYSTEM_SCAN=1 \
+  SC_DRIVE_ROOTS="$FAKE_HOME/Fake Drive" SC_FREE_GB_OVERRIDE=9 \
   bash "$REPO_DIR/skill/bin/storage-check.sh" > "$OUTPUT" || status=$?
 [ "$status" -eq 0 ] || { printf '失敗: 終了コード %s\n' "$status" >&2; exit 1; }
 
@@ -46,6 +47,7 @@ cmp -s "$BEFORE" "$AFTER" || { printf '失敗: 偽 HOME の内容が変わりま
 
 for heading in \
   '■ ディスク' \
+  '■ Google Drive' \
   '■ 再生成されるもの' \
   '■ Chrome の自分の複製' \
   '■ ログの暴走' \
@@ -56,6 +58,8 @@ for heading in \
   '■ 起動中で終了が要るアプリ'; do
   grep -Fq "$heading" "$OUTPUT" || { printf '失敗: 見出しがありません: %s\n' "$heading" >&2; exit 1; }
 done
+
+grep -Fq '空きが 10GB を切っています' "$OUTPUT" || { printf '失敗: 空き容量の案内がありません\n' >&2; exit 1; }
 
 grep -Fq 'Profile 3/Service Worker/CacheStorage' "$OUTPUT" || { printf '失敗: Profile 3 の Service Worker がありません\n' >&2; exit 1; }
 grep -Fq 'node_modules 合計' "$OUTPUT" || { printf '失敗: node_modules がありません\n' >&2; exit 1; }

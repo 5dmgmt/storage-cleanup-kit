@@ -2,7 +2,8 @@
 # このキットが配置した storage-cleanup スキルだけを外します。
 set -uo pipefail
 
-INSTALL_DIR="$HOME/.claude/skills/storage-cleanup"
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+INSTALL_DIR="$CLAUDE_DIR/skills/storage-cleanup"
 
 fail() {
   printf 'アンインストール中止: %s\n' "$*" >&2

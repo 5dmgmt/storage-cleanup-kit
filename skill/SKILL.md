@@ -14,6 +14,8 @@ user_invocable: true
 bash ~/.claude/skills/storage-cleanup/bin/storage-check.sh
 ```
 
+`CLAUDE_CONFIG_DIR` を設定している場合は、その中の `skills/storage-cleanup` を使います。
+
 開始時の空きを控えます。計測スクリプトは読み取り専用です。
 
 ## 2. 三分類する
@@ -38,15 +40,17 @@ Chrome、Claude Desktop、Google Drive など、終了が必要なアプリを�
 
 Claude Code の自動モードが `rm -rf` や `~/Library` 配下の削除を止めた場合、回り道はしません。対象を名指ししたスクリプトを書き、利用者自身に `! bash <スクリプト>` で実行してもらいます。ゴミ箱は、利用者自身が捨てた物まで空にするため使いません。
 
-## 5. あなたのデータは消さない
+## 5. あなたのデータは Drive へ移す
 
-空きを増やす場合は、クラウドへ写し、次のようにアップロード済みを確認します。
+道具は `bash ~/.claude/skills/storage-cleanup/bin/drive-offload.sh <コマンド>` で呼びます（以下は `drive-offload.sh` と略します）。
 
-```bash
-swift ~/.claude/skills/storage-cleanup/bin/cloud-status.swift <クラウド上のフォルダー>
-```
-
-同じボリュームなら `cp -Rc` で写すと、APFS の複製によりコピー中の空きが増えにくくなります。上がり済みを確認する前に元を消しません。利用者の了解を得て元ファイルを外した後、写した側は `--evict` で上がり済みのローカル内容だけ外せます。
+1. `drive-offload.sh roots` で Drive を確かめます。無ければ手元で空けられる分だけで止め、入れるかを利用者に聞きます。
+2. `drive-offload.sh candidates` の結果を、量・中身の見当・移す先の案の表にし、選ばれた物だけを扱います。
+3. Drive 内の移す先を利用者と決めます。例は `Mac から移した物_YYYY-MM-DD` です。
+4. `drive-offload.sh copy <写し先> <元>...` で写します。この段階では消しません。
+5. 上がるまで待ち、`status` で確かめます。大きい場合は利用者に知らせ、待つ間に別の作業をしてかまいません。
+6. 全部上がったら `finish` の一行を渡し、利用者がターミナル（Claude Code なら先頭に `!`）で実行します。Claude は `finish` を実行しません。渡す一行の例: `! bash ~/.claude/skills/storage-cleanup/bin/drive-offload.sh finish <記録ファイル>`。`finish` は実行の時点でもう一度全部を確かめ、一件でも外れれば何も消さずに止まります。
+7. 結果の空きを報告し、「元は Drive に残っています」と添えます。
 
 ## 6. 報告する
 

@@ -29,7 +29,30 @@ printf '■ ディスク\n'
 line
 DISK_PATH="/System/Volumes/Data"
 [ -e "$DISK_PATH" ] || DISK_PATH="/"
+FREE_GB="${SC_FREE_GB_OVERRIDE:-$(df -k "$DISK_PATH" 2>/dev/null | tail -1 | awk '{print $4/1024/1024}')}"
 df -k "$DISK_PATH" 2>/dev/null | tail -1 | awk '{printf "  空き %.1fGB / 使用 %.1fGB / 使用率 %s\n", $4/1024/1024, $3/1024/1024, $5}'
+awk -v free="$FREE_GB" 'BEGIN {if (free < 10) print "  空きが 10GB を切っています。整理をおすすめします（目安）。"}'
+printf '\n'
+
+line
+printf '■ Google Drive\n'
+line
+DRIVE_FOUND=0
+if [ -n "${SC_DRIVE_ROOTS:-}" ]; then
+  OLD_IFS=$IFS; IFS=:
+  for drive_root in $SC_DRIVE_ROOTS; do
+    if [ -d "$drive_root" ]; then printf '  %s\n' "${drive_root%/}"; DRIVE_FOUND=1; fi
+  done
+  IFS=$OLD_IFS
+else
+  for drive_base in "$H"/Library/CloudStorage/GoogleDrive-*; do
+    [ -d "$drive_base" ] || continue
+    for drive_name in 'My Drive' 'マイドライブ' 'Shared drives' '共有ドライブ'; do
+      if [ -d "$drive_base/$drive_name" ]; then printf '  %s\n' "$drive_base/$drive_name"; DRIVE_FOUND=1; fi
+    done
+  done
+fi
+[ "$DRIVE_FOUND" -eq 1 ] || printf '  見つかりません（入れると、あなたのファイルを移して手元を空けられます）\n'
 printf '\n'
 
 line

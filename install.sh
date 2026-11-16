@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# storage-cleanup スキルを利用者の ~/.claude/skills 配下へ配置します。
+# storage-cleanup スキルを利用者の Claude 設定フォルダーへ配置します。
 set -uo pipefail
 
 SCRIPT_DIR="$(unset CDPATH; cd -- "$(dirname -- "$0")" && pwd)"
-INSTALL_DIR="$HOME/.claude/skills/storage-cleanup"
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+INSTALL_DIR="$CLAUDE_DIR/skills/storage-cleanup"
 
 fail() {
   printf 'インストール中止: %s\n' "$*" >&2
@@ -15,7 +16,7 @@ fail() {
 
 if [ -e "$INSTALL_DIR" ]; then
   # skills の中に置くと同じ名前のスキルが二重に読み込まれるため、外へ退避する
-  BACKUP_ROOT="$HOME/.claude/storage-cleanup-kit-backups"
+  BACKUP_ROOT="$CLAUDE_DIR/storage-cleanup-kit-backups"
   BACKUP_DIR="$BACKUP_ROOT/storage-cleanup-$(date +%Y%m%d-%H%M%S)"
   mkdir -p "$BACKUP_ROOT" || fail "退避先を作成できません"
   [ ! -e "$BACKUP_DIR" ] || fail "退避先が既にあります: $BACKUP_DIR"
@@ -29,6 +30,7 @@ install -m 644 "$SCRIPT_DIR/skill/SKILL.md" "$INSTALL_DIR/SKILL.md" || fail "SKI
 install -m 644 "$SCRIPT_DIR/skill/reference.md" "$INSTALL_DIR/reference.md" || fail "reference.md を配置できません"
 install -m 755 "$SCRIPT_DIR/skill/bin/storage-check.sh" "$INSTALL_DIR/bin/storage-check.sh" || fail "storage-check.sh を配置できません"
 install -m 755 "$SCRIPT_DIR/skill/bin/cloud-status.swift" "$INSTALL_DIR/bin/cloud-status.swift" || fail "cloud-status.swift を配置できません"
+install -m 755 "$SCRIPT_DIR/skill/bin/drive-offload.sh" "$INSTALL_DIR/bin/drive-offload.sh" || fail "drive-offload.sh を配置できません"
 install -m 644 "$SCRIPT_DIR/VERSION" "$INSTALL_DIR/VERSION" || fail "VERSION を配置できません"
 
 if ! command -v swift >/dev/null 2>&1; then

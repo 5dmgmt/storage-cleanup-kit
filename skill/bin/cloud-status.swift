@@ -7,7 +7,7 @@ let shouldEvict = arguments.first == "--evict"
 if shouldEvict { arguments.removeFirst() }
 
 guard !arguments.isEmpty else {
-    fputs("使い方: swift cloud-status.swift [--evict] <フォルダー>...\n", stderr)
+    fputs("使い方: swift cloud-status.swift [--evict] <ファイルまたはフォルダー>...\n", stderr)
     exit(1)
 }
 
@@ -21,26 +21,28 @@ var finalStatus: Int32 = 0
 
 for path in arguments {
     var isDirectory: ObjCBool = false
-    guard manager.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
-        fputs("存在するフォルダーではありません: \(path)\n", stderr)
+    guard manager.fileExists(atPath: path, isDirectory: &isDirectory) else {
+        fputs("存在するファイルまたはフォルダーではありません: \(path)\n", stderr)
         finalStatus = 1
         continue
     }
 
-    let root = URL(fileURLWithPath: path, isDirectory: true)
-    guard let enumerator = manager.enumerator(
-        at: root,
-        includingPropertiesForKeys: Array(keys),
-        // 隠しファイルも数える（上がっていない物を見落としたまま元を消さないため）
-        options: [],
-        errorHandler: { url, error in
+    let root = URL(fileURLWithPath: path, isDirectory: isDirectory.boolValue)
+    let urls: [URL]
+    var enumerationFailed = false
+    if isDirectory.boolValue {
+        guard let enumerator = manager.enumerator(at: root, includingPropertiesForKeys: Array(keys), options: [], errorHandler: { url, error in
             fputs("読めません: \(url.path): \(error.localizedDescription)\n", stderr)
+            enumerationFailed = true
             return true
+        }) else {
+            fputs("フォルダーを調べられません: \(path)\n", stderr)
+            finalStatus = 1
+            continue
         }
-    ) else {
-        fputs("フォルダーを調べられません: \(path)\n", stderr)
-        finalStatus = 1
-        continue
+        urls = enumerator.allObjects.compactMap { $0 as? URL }
+    } else {
+        urls = [root]
     }
 
     var total = 0
@@ -51,11 +53,17 @@ for path in arguments {
     var samples: [String] = []
     var evicted = 0
     var failed = 0
+    if enumerationFailed { failed += 1 }
 
-    while let url = enumerator.nextObject() as? URL {
+    for url in urls {
         // Finder が作る .DS_Store はクラウドへ上がらないことがあるので数えない
         if url.lastPathComponent == ".DS_Store" { continue }
-        guard let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true else { continue }
+        guard let values = try? url.resourceValues(forKeys: keys) else {
+            failed += 1
+            fputs("読めません: \(url.path)\n", stderr)
+            continue
+        }
+        guard values.isRegularFile == true else { continue }
         total += 1
         guard let isUploaded = values.ubiquitousItemIsUploaded else {
             unknown += 1
@@ -90,7 +98,8 @@ for path in arguments {
         for sample in samples { print("  - \(sample)") }
     }
     if unknown > 0 { print("  この場所は File Provider 以外の同期方式を含む可能性があります。") }
-    if pending > 0, finalStatus == 0 { finalStatus = 2 }
+    if unknown > 0, finalStatus == 0 { finalStatus = 3 }
+    if pending > 0, finalStatus != 1 { finalStatus = 2 }
     if failed > 0 { finalStatus = 1 }
 }
 
